@@ -1,5 +1,6 @@
 const userModel = require("../model/auth.model");
 const jwt = require("jsonwebtoken");
+const emailService = require("../services/email.service");
 
 const userRegisterController = async (req, res) => {
   try {
@@ -35,11 +36,14 @@ const userRegisterController = async (req, res) => {
     await res.cookie("token", token);
 
     // after successfully token set. send a response
-    return res.status(201).json({
+    res.status(201).json({
       message: "User registered successfully",
       success: true,
       user,
     });
+
+    // send email to the user.
+    await emailService.sendRegistrationEmail(user.email, user.name);
   } catch (error) {
     // Mongoose validation errors
     if (error.name === "ValidationError") {
