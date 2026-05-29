@@ -32,18 +32,14 @@ async function authMiddleware(req, res, next) {
       });
     }
 
-    req.user = userData;
+    req.user = await userData;
     next();
   } catch (error) {
     return res.status(401).json({
+      success: false,
       message: "Unauthorized access, token is invalid",
     });
   }
-
-  return res.status(500).json({
-    success: "failed",
-    message: "Internal server error",
-  });
 }
 
 module.exports = {

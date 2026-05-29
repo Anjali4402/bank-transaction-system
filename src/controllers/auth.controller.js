@@ -11,7 +11,7 @@ const userRegisterController = async (req, res) => {
     if (isExist) {
       return res.status(422).json({
         message: "User already exists with this email",
-        status: "failed",
+        success: false,
       });
     }
 
@@ -50,14 +50,14 @@ const userRegisterController = async (req, res) => {
       const messages = Object.values(error.errors).map((err) => err.message);
 
       return res.status(400).json({
-        status: "failed",
+        success: false,
         message: messages[0], // first validation message
         errors: messages, // all validation messages
       });
     }
 
     return res.status(500).json({
-      status: "failed",
+      success: false,
       message: "Internal server error",
     });
   }
@@ -71,7 +71,7 @@ const userLoginController = async (req, res) => {
 
     if (!user) {
       return res.status(409).json({
-        success: "failed",
+        success: false,
         message: "User not found! Please sign up.",
       });
     }
@@ -107,21 +107,17 @@ const userLoginController = async (req, res) => {
       const messages = Object.values(error.errors).map((err) => err.message);
 
       return res.status(400).json({
-        status: "failed",
+        success: true,
         message: messages[0], // first validation message
         errors: messages, // all validation messages
       });
     }
 
-    res.status(400).json({
-      message: "Something went wrong",
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
-
-  return res.status(500).json({
-    success: "failed",
-    message: "Internal server error",
-  });
 };
 
 module.exports = { userRegisterController, userLoginController };

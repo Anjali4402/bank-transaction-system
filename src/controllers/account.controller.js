@@ -1,6 +1,6 @@
 const { accountModel } = require("../model/account.model");
 
-async function useAccountController(req, res) {
+async function createAccountController(req, res) {
   try {
     const { currency } = req.body;
 
@@ -24,19 +24,18 @@ async function useAccountController(req, res) {
   } catch (error) {
     if (error.name === "ValidationError") {
       const messages = Object.values(error.errors).map((err) => err.message);
-
       return res.status(400).json({
         status: "failed",
-        message: messages[0], // first validation message
-        errors: messages, // all validation messages
+        message: messages[0],
+        errors: messages,
       });
     }
-  }
 
-  return res.status(500).json({
-    success: false,
-    message: "Internal server error",
-  });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 }
 
-module.exports = { useAccountController };
+module.exports = { createAccountController };
