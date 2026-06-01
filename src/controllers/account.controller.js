@@ -38,4 +38,31 @@ async function createAccountController(req, res) {
   }
 }
 
-module.exports = { createAccountController };
+async function viewAccountController(req, res) {
+  const data = req.user;
+
+  try {
+    const userAccounts = await accountModel.find({
+      user: data?._id,
+    });
+
+    if (!userAccounts) {
+      return res.status(400).json({
+        message: "there is some issue",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: userAccounts,
+      message: "User Accounts fetch successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
+
+module.exports = { createAccountController, viewAccountController };
