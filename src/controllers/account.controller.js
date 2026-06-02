@@ -65,4 +65,49 @@ async function viewAccountController(req, res) {
   }
 }
 
-module.exports = { createAccountController, viewAccountController };
+async function viewAccountBalanceController(req, res) {
+  const accountId = req.params.accountId;
+
+  if (!accountId) {
+    return res.status(400).json({
+      success: false,
+      message: "Account Id is not provided",
+    });
+  }
+
+  try {
+    const userData = await accountModel.findOne({ _id: accountId });
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    const balance = await userData.getBalance();
+
+    return res.status(200).json({
+      success: true,
+      message: "Balance fetch successfully!",
+      data: {
+        accountId: accountId,
+        balance: balance,
+      },
+    });
+  } catch (error) {
+    // console.error("view balance Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error,
+    });
+  }
+}
+
+module.exports = {
+  createAccountController,
+  viewAccountController,
+  viewAccountBalanceController,
+};
