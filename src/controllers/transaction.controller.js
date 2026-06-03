@@ -1,5 +1,7 @@
+const mongoose = require("mongoose");
 const { accountModel } = require("../model/account.model");
 const transactionModel = require("../model/transaction.model");
+const ledgerModel = require("../model/ledger.model");
 
 /**
  *
@@ -121,6 +123,48 @@ async function CreateTransaction(req, res) {
         message: `Insufficient balance. Current balance is ${balance}. Requested amount is ${amount}`,
       });
     }
+
+    // STEP 5 - Create transaction (PENDING)
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    const transaction = new transactionModel({
+      fromAccount,
+      toAccount,
+      status: "PENDING",
+      amount,
+      idempotencyKey,
+    });
+
+    const debitLedgerEntry = await ledgerModel.create(
+      [
+        {
+          account: fromAccount,
+          amount: amount,
+          transaction: transaction._id,
+          type: "DEBIT",
+        },
+      ],
+      { session },
+    );
+
+    const creditLedgerEntry = await ledgerModel.create(
+      [
+        {
+          account: toAccount,
+          amount: amount,
+          transaction: transaction._id,
+          type: "CREDIT",
+        },
+      ],
+      { session },
+    );
+
+    transaction.status = "COMPLETED";
+    await transaction.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
