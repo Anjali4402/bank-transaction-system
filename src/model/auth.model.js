@@ -21,7 +21,14 @@ const userSchema = new mongoose.Schema(
       minlength: [6, "Password should contain atleast 6 character"],
       select: false, //By default, password will NOT be returned in queries.
     },
+    systemUser: {
+      type: Boolean,
+      default: false,
+      immutable: true,
+      select: false,
+    },
   },
+
   /// we will get or store the timstap or each createing and updating user.
   {
     timestamps: true,
