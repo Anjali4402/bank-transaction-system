@@ -1,6 +1,7 @@
 const userModel = require("../model/auth.model");
 const jwt = require("jsonwebtoken");
 const emailService = require("../services/email.service");
+const tokenBlackListModel = require("../model/blackList.model");
 
 const userRegisterController = async (req, res) => {
   try {
@@ -43,7 +44,7 @@ const userRegisterController = async (req, res) => {
     });
 
     // send email to the user.
-    await emailService.sendRegistrationEmail(user.email, user.name);
+    // await emailService.sendRegistrationEmail(user.email, user.name);
   } catch (error) {
     // Mongoose validation errors
     if (error.name === "ValidationError") {
@@ -120,4 +121,21 @@ const userLoginController = async (req, res) => {
   }
 };
 
-module.exports = { userRegisterController, userLoginController };
+const userLogoutController = async (req, res) => {
+  // token blacklist
+  await tokenBlackListModel.create({ token });
+  // Clear cookie
+  res.clearCookie("token");
+
+  // send response.
+  res.status(201).json({
+    success: true,
+    message: "User logout successfully!",
+  });
+};
+
+module.exports = {
+  userRegisterController,
+  userLoginController,
+  userLogoutController,
+};

@@ -7,11 +7,6 @@ const tokenBlackListSchema = new mongoose.Schema(
       required: [true, "token is required to blacklist"],
       unique: [true, "Token is already blacklisted"],
     },
-    blacklistedAt: {
-      type: Date,
-      default: Date.now,
-      immutable: true,
-    },
   },
   {
     timestamps: true,
