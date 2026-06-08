@@ -2,6 +2,7 @@ const { accountModel } = require("../model/account.model");
 const mongoose = require("mongoose");
 const transactionModel = require("../model/transaction.model");
 const ledgerModel = require("../model/ledger.model");
+const userModel = require("../model/auth.model");
 
 /**
  * Credit Amount.
@@ -41,6 +42,20 @@ async function creditController(req, res, next) {
       });
     }
 
+    const isSystemUser = await userModel
+      .findOne({
+        systemUser: true,
+        _id: req.user._id,
+      })
+      .select("systemUser");
+
+    // Validate is requesting user and account holder is same?
+    if (!isSystemUser) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid access. permission denied!",
+      });
+    }
     // * STEP 2 - Validate idempotency key.
     const existingTransaction = await transactionModel.findOne({
       idempotencyKey,
@@ -84,40 +99,12 @@ async function creditController(req, res, next) {
     }
 
     // now 1. who is credit the money and who is requesting both are same.
-    const requestingUserId = req.user._id;
-    const creditUserId = toAccountUser?.user;
 
-    if (!requestingUserId.equals(creditUserId)) {
-      return res.status(403).json({
-        success: false,
-        message: "Invalid Account Access! permission denied",
-      });
-    }
-
-    // find from account user
-    // const systemUser = await accountModel
-    // .findOne({
-    // systemUser: true,
-    // })
-    // .select("+systemUser");
-    const systemUser = await accountModel.findOne().select("systemUser");
-
-    if (!systemUser) {
-      return res.status(400).json({
-        success: false,
-        message: "System user is not available! Process failed.",
-      });
-    }
-
-    // check and validate balance
-    // const balance = await systemUser.getBalance();
-
-    // if (balance < amount) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: `Insufficient balance. Current balance is ${balance}. Requested amount is ${amount}`,
-    //   });
-    // }
+    const systemUser = await accountModel
+      .findOne({
+        user: req.user._id,
+      })
+      .select("systemUser");
 
     // Transaction Started.
     const session = await mongoose.startSession();
@@ -154,8 +141,13 @@ async function creditController(req, res, next) {
       { session },
     );
 
-    transaction.status = "COMPLETED";
+    // transaction.status = "COMPLETED";
     await transaction.save({ session });
+    await transactionModel.findOneAndUpdate(
+      { _id: transaction._id },
+      { status: "COMPLETED" },
+      { session },
+    );
 
     await session.commitTransaction();
     session.endSession();
