@@ -58,7 +58,7 @@ async function CreateTransaction(req, res) {
     }
 
     // * STEP 2 - Validate idempotency key.
-    const isIdempotencyKey = await transactionModel.findOne({
+    const existingTransaction = await transactionModel.findOne({
       idempotencyKey,
     });
 

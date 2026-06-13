@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const transactionModel = require("../model/transaction.model");
 const ledgerModel = require("../model/ledger.model");
 const userModel = require("../model/auth.model");
+const { validateIdempotency } = require("../helpers/transaction.helper");
+const { creditMoney } = require("../services/transaction.service");
 
 /**
  * Credit Amount.
@@ -57,46 +59,19 @@ async function creditController(req, res, next) {
       });
     }
     // * STEP 2 - Validate idempotency key.
+
+    const transactionCheck = await validateIdempotency(idempotencyKey);
+
+    if (transactionCheck) {
+      return res.status(transactionCheck.response.code).json({
+        success: transactionCheck.response.success,
+        message: transactionCheck.response.message,
+      });
+    }
+
     const existingTransaction = await transactionModel.findOne({
       idempotencyKey,
     });
-
-    // if idempotencyKey already available.
-
-    // not just give sime error, handle all 4 status of it
-    const statusMessages = {
-      COMPLETED: {
-        success: true,
-        code: 200,
-        message: "This transaction has already been processed successfully.",
-      },
-      PENDING: {
-        success: true,
-        code: 202,
-        message: "This transaction is currently being processed.",
-      },
-      FAILED: {
-        success: false,
-        code: 409,
-        message: "This transaction failed and was not completed.",
-      },
-      REVERSED: {
-        success: false,
-        code: 409,
-        message: "This transaction was reversed.",
-      },
-    };
-
-    if (existingTransaction) {
-      const response = statusMessages[existingTransaction.status];
-
-      return res.status(response.code).json({
-        success: response.success,
-        status: existingTransaction.status,
-        message: response.message,
-        transactionId: existingTransaction._id,
-      });
-    }
 
     // now 1. who is credit the money and who is requesting both are same.
 
@@ -108,56 +83,37 @@ async function creditController(req, res, next) {
 
     // Transaction Started.
     const session = await mongoose.startSession();
-    session.startTransaction();
 
-    const transaction = new transactionModel({
-      fromAccount: systemUser?._id,
-      toAccount,
-      amount,
-      idempotencyKey,
-    });
+    try {
+      session.startTransaction();
 
-    const debitLedgerEntry = await ledgerModel.create(
-      [
-        {
-          account: systemUser?._id,
-          amount: amount,
-          transaction: transaction._id,
-          type: "DEBIT",
-        },
-      ],
-      { session },
-    );
+      // all operations
+      const transaction = await creditMoney({
+        fromAccount: systemUser._id,
+        toAccount,
+        amount,
+        idempotencyKey,
+        session,
+      });
 
-    const creditLedgerEntry = await ledgerModel.create(
-      [
-        {
-          account: toAccount,
-          amount: amount,
-          transaction: transaction._id,
-          type: "CREDIT",
-        },
-      ],
-      { session },
-    );
+      await transactionModel.findOneAndUpdate(
+        { _id: transaction._id },
+        { status: "COMPLETED" },
+        { session },
+      );
 
-    // transaction.status = "COMPLETED";
-    await transaction.save({ session });
-    await transactionModel.findOneAndUpdate(
-      { _id: transaction._id },
-      { status: "COMPLETED" },
-      { session },
-    );
+      await session.commitTransaction();
 
-    await session.commitTransaction();
-    session.endSession();
-
-    return res.status(201).json({
-      success: true,
-      message: "Transaction completed successfully!",
-    });
-
-    //
+      return res.status(201).json({
+        success: true,
+        message: "Transaction completed successfully!",
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
